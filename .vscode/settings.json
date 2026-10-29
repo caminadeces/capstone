@@ -1,0 +1,6 @@
+{
+    "files.exclude": {
+        "**/core-service": true
+    },
+    "python.terminal.useEnvFile": true
+}

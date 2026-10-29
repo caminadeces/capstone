@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MOWM — Mom's Organized Weekly Meals</title>
+  <style>
+    :root { color-scheme:light; --ink:#26352e; --muted:#718077; --green:#436b52; --paper:#faf9f5; --line:#e7e8df; }
+    * { box-sizing:border-box; }
+    [hidden] { display:none !important; }
+    body { margin:0; background:var(--paper); color:var(--ink); font:16px/1.55 system-ui,-apple-system,Segoe UI,sans-serif; }
+    main { width:min(820px,100% - 32px); margin:0 auto; min-height:100vh; display:flex; flex-direction:column; padding:32px 0 24px; }
+    header { padding:10px 4px 24px; border-bottom:1px solid var(--line); }
+    .eyebrow { color:var(--green); text-transform:uppercase; letter-spacing:.13em; font-size:.72rem; font-weight:750; }
+    .brand-line { display:flex; align-items:center; gap:10px; margin-bottom:8px; color:var(--green); font-size:.75rem; font-weight:750; letter-spacing:.11em; text-transform:uppercase; }
+    .brand-line img { width:38px; height:38px; border-radius:50%; object-fit:contain; }
+    h1 { margin:4px 0; font-family:Georgia,serif; font-size:2.25rem; font-weight:500; }
+    header p { margin:0; color:var(--muted); }
+    #messages { flex:1; padding:22px 4px; overflow:auto; }
+    .welcome { max-width:620px; padding:20px; border:1px solid var(--line); border-radius:16px; background:white; }
+    .welcome h2 { margin:0 0 7px; font:500 1.35rem Georgia,serif; }
+    .welcome p { margin:0 0 14px; color:var(--muted); }
+    .start-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:18px; }
+    .start-actions button, .back-button { border:1px solid var(--line); border-radius:10px; padding:10px 14px; color:var(--green); background:white; font-weight:650; }
+    .start-actions button:first-child { border-color:var(--green); color:white; background:var(--green); }
+    .back-button { justify-self:start; padding:6px 10px; font-size:.88rem; }
+    button { cursor:pointer; font:inherit; }
+    .message { max-width:88%; margin:12px 0; padding:12px 16px; border-radius:16px; white-space:pre-wrap; overflow-wrap:anywhere; }
+    .user { margin-left:auto; color:white; background:var(--green); border-bottom-right-radius:4px; }
+    .assistant { background:white; border:1px solid var(--line); border-bottom-left-radius:4px; }
+    .error { color:#9b332b; }
+    .message-actions { display:flex; align-items:center; gap:10px; margin-top:10px; font-size:.88rem; }
+    .message-actions button { border:1px solid var(--line); border-radius:8px; padding:6px 10px; color:var(--green); background:white; }
+    .message-actions button:disabled { opacity:.55; cursor:wait; }
+    .message-actions a { color:var(--green); }
+    .pdf-export-actions { display:grid; grid-template-columns:max-content minmax(120px,1fr); align-items:center; gap:8px 10px; }
+    .pdf-export-progress { height:6px; overflow:hidden; border-radius:99px; background:#e8eee5; }
+    .pdf-export-progress span { display:block; width:36%; height:100%; border-radius:inherit; background:var(--green); animation:pdf-progress 1.15s ease-in-out infinite alternate; }
+    .pdf-export-status { grid-column:1 / -1; color:var(--muted); font-size:.82rem; }
+    .pdf-export-error { color:#9b332b; }
+    @keyframes pdf-progress { from { transform:translateX(-15%); } to { transform:translateX(195%); } }
+    form#chat-form { display:flex; gap:10px; padding:12px; border:1px solid var(--line); border-radius:18px; background:white; box-shadow:0 5px 24px #26352e0a; }
+    .starter-form { display:grid; gap:8px; }
+    .starter-form > label { margin-top:7px; font-weight:650; font-size:.9rem; }
+    .starter-form select, .starter-form input[type="text"], .starter-form input[type="number"] { width:100%; padding:10px 11px; border:1px solid var(--line); border-radius:10px; background:white; color:var(--ink); font:inherit; }
+    .choice-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+    .choice-grid label { padding:8px 10px; border:1px solid var(--line); border-radius:10px; font-size:.9rem; }
+    .choice-grid input { accent-color:var(--green); }
+    #start-planning { margin-top:8px; padding:12px; border:0; border-radius:12px; color:white; background:var(--green); font-weight:700; }
+    #start-planning:disabled { opacity:.55; cursor:wait; }
+    #suggest-from-fridge { margin-top:8px; padding:12px; border:1px solid var(--green); border-radius:12px; color:var(--green); background:white; font-weight:700; }
+    textarea { flex:1; min-height:48px; max-height:160px; resize:vertical; border:0; outline:0; padding:12px 8px; font:inherit; color:var(--ink); }
+    #send { align-self:flex-end; border:0; border-radius:12px; background:var(--green); color:white; padding:11px 17px; font-weight:650; }
+    #send:disabled { opacity:.55; cursor:wait; }
+    .note { text-align:center; color:var(--muted); font-size:.78rem; margin-top:9px; }
+    @media(max-width:560px) { main { padding-top:18px; } h1 { font-size:1.9rem; } .message { max-width:96%; } .choice-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div class="brand-line"><img src="{{ url_for('static', filename='mowm-logo.png') }}" alt=""><span>MOM'S ORGANIZED WEEKLY MEALS</span></div>
+      <h1>Plan a week that works.</h1>
+      <p>Easy meal ideas, a sensible grocery list, and less dinner guesswork.</p>
+    </header>
+    <section id="messages" aria-live="polite">
+      <div class="welcome" id="welcome">
+        <div id="start-options">
+          <h2>How would you like to start?</h2>
+          <p>Build a weekly plan or find meals you can make with what’s in your fridge.</p>
+          <div class="start-actions">
+            <button id="guided-choice" type="button">Use the meal planner form</button>
+            <button id="fridge-choice" type="button">Suggest a meal from my fridge</button>
+          </div>
+        </div>
+      </div>
+      <form id="starter-form" class="starter-form welcome" hidden>
+          <button id="back-to-options" class="back-button" type="button">Back to choices</button>
+          <h2>Tell me what works for your household</h2>
+          <label>Preferred cuisine (choose any)</label>
+          <div class="choice-grid" id="cuisine-options">
+            <label><input type="checkbox" name="cuisine" value="Filipino"> Filipino</label>
+            <label><input type="checkbox" name="cuisine" value="Mexican"> Mexican</label>
+            <label><input type="checkbox" name="cuisine" value="Japanese"> Japanese</label>
+            <label><input type="checkbox" name="cuisine" value="Chinese"> Chinese</label>
+            <label><input type="checkbox" name="cuisine" value="Korean"> Korean</label>
+            <label><input type="checkbox" name="cuisine" value="Italian"> Italian</label>
+            <label><input type="checkbox" name="cuisine" value="Indian"> Indian</label>
+            <label><input type="checkbox" name="cuisine" value="Thai"> Thai</label>
+            <label><input type="checkbox" name="cuisine" value="Mediterranean"> Mediterranean</label>
+          </div>
+          <small>Leave all unchecked for any cuisine.</small>
+          <label for="diet">Diet preference</label>
+          <select id="diet">
+            <option>No specific diet</option><option>Vegetarian</option><option>Vegan</option>
+            <option>Pescatarian</option><option>Other / I’ll explain</option>
+          </select>
+          <label>Ingredients to include (choose any)</label>
+          <div class="choice-grid">
+            <label><input type="checkbox" name="ingredients" value="beef"> Beef</label>
+            <label><input type="checkbox" name="ingredients" value="pork"> Pork</label>
+            <label><input type="checkbox" name="ingredients" value="chicken"> Chicken</label>
+            <label><input type="checkbox" name="ingredients" value="fish"> Fish</label>
+            <label><input type="checkbox" name="ingredients" value="seafood"> Seafood</label>
+            <label><input type="checkbox" name="ingredients" value="vegetables"> Vegetables</label>
+          </div>
+          <label for="allergies">Food allergies or ingredients to avoid</label>
+          <input id="allergies" type="text" placeholder="e.g. peanuts, shellfish; or none">
+          <label for="household">How many people?</label>
+          <input id="household" type="number" min="1" max="20" value="2">
+          <button id="start-planning" type="submit">Create my weekly plan</button>
+      </form>
+      <form id="fridge-form" class="starter-form welcome" hidden>
+        <button id="back-from-fridge" class="back-button" type="button">Back to choices</button>
+        <h2>What’s in your fridge?</h2>
+        <p>List ingredients you have, and the chef will plan seven days of meals around them.</p>
+        <label for="fridge-ingredients">Ingredients on hand</label>
+        <textarea id="fridge-ingredients" rows="4" placeholder="e.g. chicken, eggs, spinach, tomatoes, rice" required></textarea>
+        <label for="fridge-diet">Diet preference</label>
+        <select id="fridge-diet">
+          <option>No specific diet</option><option>Vegetarian</option><option>Vegan</option>
+          <option>Pescatarian</option><option>Other / I’ll explain</option>
+        </select>
+        <label for="fridge-household">How many people?</label>
+        <input id="fridge-household" type="number" min="1" max="20" value="2">
+        <label for="fridge-allergies">Food allergies or ingredients to avoid</label>
+        <input id="fridge-allergies" type="text" placeholder="e.g. peanuts, shellfish; or none">
+        <button id="suggest-from-fridge" type="submit">Plan my 7 days</button>
+      </form>
+    </section>
+    <button id="change-preferences" class="back-button" type="button" hidden>Change preferences / start over</button>
+    <form id="chat-form" hidden>
+      <textarea id="message" aria-label="Your message" placeholder="Ask for a weekly meal plan…" required></textarea>
+      <button id="send" type="submit">Send</button>
+    </form>
+    <div class="note">Check ingredient labels and allergy guidance for your household.</div>
+  </main>
+  <script>
+    const messages = document.querySelector('#messages');
+    const form = document.querySelector('#chat-form');
+    const field = document.querySelector('#message');
+    const send = document.querySelector('#send');
+    const starterButton = document.querySelector('#start-planning');
+    const startOptions = document.querySelector('#start-options');
+    const starterForm = document.querySelector('#starter-form');
+    const fridgeForm = document.querySelector('#fridge-form');
+    const chatForm = document.querySelector('#chat-form');
+    const changePreferencesButton = document.querySelector('#change-preferences');
+    const history = [];
+    const mealPlanOwnerId = new URLSearchParams(window.location.search).get('ownerId') || 'guest';
+    const conversationStorageKey = `py-ai-chat-conversation-id:${mealPlanOwnerId}`;
+    let conversationId = localStorage.getItem(conversationStorageKey);
+
+    document.querySelector('#guided-choice').addEventListener('click', () => {
+      document.querySelector('#welcome').hidden = true;
+      startOptions.hidden = true;
+      starterForm.hidden = false;
+    });
+    document.querySelector('#back-to-options').addEventListener('click', () => {
+      starterForm.hidden = true;
+      document.querySelector('#welcome').hidden = false;
+      startOptions.hidden = false;
+    });
+    document.querySelector('#fridge-choice').addEventListener('click', () => {
+      document.querySelector('#welcome').hidden = true;
+      fridgeForm.hidden = false;
+      document.querySelector('#fridge-ingredients').focus();
+    });
+    document.querySelector('#back-from-fridge').addEventListener('click', () => {
+      fridgeForm.hidden = true;
+      document.querySelector('#welcome').hidden = false;
+    });
+    fridgeForm.addEventListener('submit', event => {
+      event.preventDefault();
+      const ingredients = document.querySelector('#fridge-ingredients').value.trim();
+      if (!ingredients) return;
+      const diet = document.querySelector('#fridge-diet').value;
+      const household = document.querySelector('#fridge-household').value || '2';
+      const allergies = document.querySelector('#fridge-allergies').value.trim() || 'None reported';
+      field.value = `Create a complete seven-day meal plan, Monday through Sunday, for ${household} people. Include breakfast, lunch, and dinner every day. Prioritize using these ingredients I already have: ${ingredients}. Reuse ingredients thoughtfully across the week and list any additional ingredients needed in a grouped grocery list. Diet preference: ${diet}. Food allergies or ingredients to avoid: ${allergies}. Respect the diet and allergies strictly. Include practical ingredient quantities and clear cooking steps for every meal, and remind me to check labels and avoid cross-contact for allergies.`;
+      fridgeForm.hidden = true;
+      chatForm.hidden = false;
+      document.querySelector('#welcome').remove();
+      form.requestSubmit();
+    });
+
+    changePreferencesButton.addEventListener('click', () => {
+      const confirmed = window.confirm('Start over and create a new meal plan with changed preferences? Your current conversation will be cleared.');
+      if (!confirmed) return;
+      history.length = 0;
+      conversationId = null;
+      localStorage.removeItem(conversationStorageKey);
+      messages.querySelectorAll('.message').forEach(message => message.remove());
+      chatForm.hidden = true;
+      changePreferencesButton.hidden = true;
+      starterButton.disabled = false;
+      starterButton.textContent = 'Create my new weekly plan';
+      starterForm.hidden = false;
+      starterForm.scrollIntoView({behavior:'smooth', block:'start'});
+    });
+
+    function notifyParentPlanSaved(plan) {
+      if (!plan || window.parent === window) return;
+      try {
+        const targetOrigin = document.referrer ? new URL(document.referrer).origin : window.location.origin;
+        window.parent.postMessage({ type: 'mowm:meal-plan-saved', plan }, targetOrigin);
+      } catch (error) {
+        console.warn('Could not notify My week about the saved plan.', error);
+      }
+    }
+
+    function addMessage(role, content, isError = false, exportable = false, mealPlan = null) {
+      const node = document.createElement('div');
+      node.className = `message ${role}${isError ? ' error' : ''}`;
+      node.textContent = content;
+      messages.append(node);
+      if (exportable) {
+        const actions = document.createElement('div');
+        actions.className = 'message-actions pdf-export-actions';
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = 'Save PDF to S3';
+        button.addEventListener('click', async () => {
+          button.disabled = true;
+          button.textContent = 'Generating images…';
+          const progress = document.createElement('div');
+          progress.className = 'pdf-export-progress';
+          progress.setAttribute('role', 'progressbar');
+          progress.setAttribute('aria-label', 'Saving PDF to S3');
+          const indicator = document.createElement('span');
+          progress.append(indicator);
+          const status = document.createElement('span');
+          status.className = 'pdf-export-status';
+          status.setAttribute('role', 'status');
+          status.textContent = 'Generating recipe images, saving the plan, and uploading the PDF…';
+          actions.replaceChildren(button, progress, status);
+          try {
+            const response = await fetch('/api/export-pdf', {
+              method:'POST', headers:{'Content-Type':'application/json'},
+              body:JSON.stringify({content, ownerId: mealPlanOwnerId, mealPlan: mealPlan ? {...mealPlan, ownerId: mealPlanOwnerId} : null})
+            });
+            const data = await response.json().catch(() => ({}));
+            if (data.planSaved && data.plan) notifyParentPlanSaved(data.plan);
+            if (!response.ok) throw new Error(data.error || 'PDF export failed.');
+            if (data.plan) notifyParentPlanSaved(data.plan);
+            const link = document.createElement('a');
+            link.href = data.url;
+            link.target = '_blank';
+            link.rel = 'noopener';
+            link.textContent = 'Open PDF link';
+            link.download = data.filename;
+            const warnings = [];
+            if (data.imageFailures) warnings.push(`${data.imageFailures} recipe image(s) could not be generated.`);
+            if (data.archiveSaved === false) warnings.push('The PDF was saved, but its archive entry could not be saved.');
+            if (warnings.length) {
+              status.textContent = warnings.join(' ');
+              actions.replaceChildren(link, status);
+            } else {
+              actions.replaceChildren(link);
+            }
+          } catch (error) {
+            button.disabled = false;
+            button.textContent = 'Save PDF to S3';
+            progress.remove();
+            status.className = 'pdf-export-status pdf-export-error';
+            status.textContent = error.message;
+          }
+        });
+        actions.append(button);
+        node.append(actions);
+      }
+      messages.scrollTop = messages.scrollHeight;
+      return node;
+    }
+
+    async function restoreConversation() {
+      if (!conversationId) return;
+      try {
+        const response = await fetch(`/api/conversations/${encodeURIComponent(conversationId)}`);
+        if (!response.ok) {
+          if (response.status === 404) localStorage.removeItem(conversationStorageKey);
+          return;
+        }
+        const data = await response.json();
+        if (!Array.isArray(data.turns) || !data.turns.length) return;
+        history.push(...data.turns);
+        data.turns.forEach(turn => addMessage(turn.role, turn.content, false, turn.role === 'assistant', turn.mealPlan || null));
+        document.querySelector('#welcome').hidden = true;
+        changePreferencesButton.hidden = false;
+        chatForm.hidden = false;
+      } catch (error) {
+        console.warn('Could not restore saved chat history.', error);
+      }
+    }
+    restoreConversation();
+
+    document.querySelector('#starter-form').addEventListener('submit', event => {
+      event.preventDefault();
+      const cuisines = [...document.querySelectorAll('input[name="cuisine"]:checked')]
+        .map(item => item.value);
+      const cuisine = cuisines.length ? cuisines.join(', ') : 'Any cuisine';
+      const diet = document.querySelector('#diet').value;
+      const ingredients = [...document.querySelectorAll('input[name="ingredients"]:checked')].map(item => item.value);
+      const allergies = document.querySelector('#allergies').value.trim() || 'None reported';
+      const household = document.querySelector('#household').value || '2';
+      const include = ingredients.length ? ingredients.join(', ') : 'Please choose ingredients that suit my diet';
+      field.value = `Please create a seven-day weekly meal plan for ${household} people. Preferred cuisine: ${cuisine}. Diet preference: ${diet}. Ingredients I’d like included: ${include}. Food allergies or ingredients to avoid: ${allergies}. Please respect my diet and allergies, and include a grocery list.`;
+      starterForm.hidden = true;
+      chatForm.hidden = false;
+      changePreferencesButton.hidden = false;
+      starterButton.disabled = true;
+      form.requestSubmit();
+    });
+
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      const message = field.value.trim();
+      if (!message || send.disabled) return;
+      addMessage('user', message);
+      history.push({role:'user', content:message});
+      field.value = '';
+      send.disabled = true;
+      const pending = addMessage('assistant', 'Putting together some ideas…');
+      try {
+        const response = await fetch('/api/chat', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({message, history:history.slice(0, -1), conversationId})
+        });
+        const data = await response.json();
+        pending.remove();
+        if (!response.ok) throw new Error(data.error || 'Something went wrong.');
+        conversationId = data.conversationId;
+        localStorage.setItem(conversationStorageKey, conversationId);
+        addMessage('assistant', data.reply, false, true, data.mealPlan || null);
+        history.push({role:'assistant', content:data.reply});
+      } catch (error) {
+        pending.remove();
+        addMessage('assistant', error.message, true);
+      } finally {
+        send.disabled = false;
+        starterButton.disabled = false;
+        field.focus();
+      }
+    });
+    field.addEventListener('keydown', event => {
+      if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); form.requestSubmit(); }
+    });
+  </script>
+</body>
+</html>
