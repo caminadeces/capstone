@@ -258,3 +258,19 @@ Useful health/documentation URLs:
 - Existing PDF records written before mealPlanId linking was added cannot cascade-delete their associated plan or images.
 - The Node GET /api/meal-plans query currently uses a single DynamoDB Query request with a limit of 500; it is not fully paginated for owners with more than 500 matching plans.
 
+## Future Enhancements
+
+The following enhancements are planned for future releases of MOWM.
+
+ 1. Guest mode
+Guests can use the app, but only the **Ask your chef** feature is accessible. AI chat responses are delivered as a downloadable PDF and are not stored in AWS.
+
+ 2. YouTube cooking links
+Include a link whenever a YouTube video on how to cook the recipe is available.
+
+ 3. Calorie count
+Show the calorie count for each recipe and meal plan.
+
+ 4. Multi-language support
+Let users choose their preferred language for the app interface, recipes and AI chat responses.
+
